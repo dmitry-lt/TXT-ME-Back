@@ -2,7 +2,7 @@ const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, GetCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
 const jwt = require("jsonwebtoken");
 
-const client = new DynamoDBClient({ region: "eu-north-1" });
+const client = new DynamoDBClient({ region: 'eu-north-1', ...(process.env.DYNAMODB_URL && { endpoint: process.env.DYNAMODB_URL }) });
 const docClient = DynamoDBDocumentClient.from(client);
 const JWT_SECRET = process.env.JWT_SECRET || "cms-jwt-secret-prod-2025";
 

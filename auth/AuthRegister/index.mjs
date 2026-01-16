@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-d
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 
-const client = new DynamoDBClient({ region: process.env.AWS_REGION });
+const client = new DynamoDBClient({ region: 'eu-north-1', ...(process.env.DYNAMODB_URL && { endpoint: process.env.DYNAMODB_URL }) });
 const docClient = DynamoDBDocumentClient.from(client);
 
 const corsHeaders = {

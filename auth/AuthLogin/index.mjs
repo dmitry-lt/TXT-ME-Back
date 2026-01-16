@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const client = new DynamoDBClient({});
+const client = new DynamoDBClient({ region: 'eu-north-1', ...(process.env.DYNAMODB_URL && { endpoint: process.env.DYNAMODB_URL }) });
 const docClient = DynamoDBDocumentClient.from(client);
 
 // JWT Secret - use AWS Secrets Manager in production
