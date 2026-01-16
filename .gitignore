@@ -14,5 +14,7 @@ Thumbs.db
 function.zip
 
 # Node/Python зависимости (если появятся внутри папок)
-node_modules/
+**/node_modules/
 __pycache__/
+
+.idea
