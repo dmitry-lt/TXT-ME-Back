@@ -120,6 +120,11 @@ Resources:
           Properties:
             Path: /posts/{id}/comments/{commentId}
             Method: DELETE
+        ApiOptions: # CORS preflight
+          Type: Api
+          Properties:
+            Path: /posts/{postId}/comments/{commentId}
+            Method: OPTIONS
       Environment:
         Variables:
           DYNAMODB_URL: ""
