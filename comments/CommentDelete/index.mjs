@@ -26,6 +26,14 @@ export const handler = async (event) => {
   };
   
   try {
+    if (event.httpMethod === "OPTIONS") {
+      return {
+        statusCode: 204,
+        headers: corsHeaders,
+        body: ""
+      };
+    }
+
     // Проверка авторизации
     const authHeader = event.headers?.Authorization || event.headers?.authorization;
     
