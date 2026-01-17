@@ -18,4 +18,4 @@ else
     echo "Skipping installation. Use './$(basename "$0") i' to install dependencies."
 fi
 
-sam local start-api --env-vars locals.json
+sam local start-api --warm-containers LAZY --env-vars locals.json
