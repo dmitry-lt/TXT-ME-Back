@@ -186,6 +186,11 @@ Resources:
           Properties:
             Path: /posts/{id}
             Method: GET
+        ApiOptions: # CORS preflight
+          Type: Api
+          Properties:
+            Path: /posts/{id}
+            Method: OPTIONS
       Environment:
         Variables:
           DYNAMODB_URL: ""
@@ -275,8 +280,13 @@ Resources:
         Api:
           Type: Api
           Properties:
-            Path: /users/profile
+            Path: /admin/users/profile
             Method: GET
+        ApiOptions: # CORS preflight
+          Type: Api
+          Properties:
+            Path: /admin/users/profile
+            Method: OPTIONS
       Environment:
         Variables:
           DYNAMODB_URL: ""
@@ -290,8 +300,13 @@ Resources:
         Api:
           Type: Api
           Properties:
-            Path: /users/{userId}/avatar
+            Path: /admin/users/{userId}/avatar
             Method: GET
+        ApiOptions: # CORS preflight
+          Type: Api
+          Properties:
+            Path: /admin/users/{userId}/avatar
+            Method: OPTIONS
       Environment:
         Variables:
           DYNAMODB_URL: ""

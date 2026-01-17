@@ -12,11 +12,18 @@ const corsHeaders = {
 };
 
 export const handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: corsHeaders,
+      body: ""
+    };
+  }
   console.log("Event:", JSON.stringify(event));
   
   try {
     const postId = event.pathParameters?.id;
-    
+
     if (!postId) {
       return {
         statusCode: 400,

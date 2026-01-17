@@ -4,8 +4,23 @@ const { DynamoDBDocumentClient, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const client = new DynamoDBClient({ region: 'eu-north-1', ...(process.env.DYNAMODB_URL && { endpoint: process.env.DYNAMODB_URL }) });
 const dynamodb = DynamoDBDocumentClient.from(client);
 
+const corsHeaders = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type,x-user-id,Authorization",
+  "Access-Control-Allow-Methods": "OPTIONS,POST,GET,PUT,DELETE"
+};
+
 exports.handler = async (event) => {
   try {
+    if (event.httpMethod === "OPTIONS") {
+      return {
+        statusCode: 204,
+        headers: corsHeaders,
+        body: ""
+      };
+    }
+
     const userId = event.pathParameters.userId;
     
     console.log('Fetching avatar for userId:', userId);

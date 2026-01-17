@@ -1,3 +1,16 @@
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+
+const client = new DynamoDBClient({ region: 'eu-north-1', ...(process.env.DYNAMODB_URL && { endpoint: process.env.DYNAMODB_URL }) });
+const docClient = DynamoDBDocumentClient.from(client);
+
+const corsHeaders = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type,x-user-id,Authorization",
+  "Access-Control-Allow-Methods": "OPTIONS,POST,GET,PUT,DELETE"
+};
+
 export const handler = async (event) => {
   console.log("Event:", JSON.stringify(event));
 
