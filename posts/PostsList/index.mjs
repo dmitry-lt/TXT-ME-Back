@@ -39,19 +39,30 @@ export const handler = async (event) => {
     
     // Если фильтр по tagId - используем FilterExpression
     if (tagId) {
+      // Оставляем Scan с фильтром для тегов (как временное решение)
       params.FilterExpression = "contains(tags, :tagId)";
       params.ExpressionAttributeValues = {
         ":tagId": tagId
       };
       result = await docClient.send(new ScanCommand(params));
     } else {
-      // Без фильтра - просто сканируем все посты
-      result = await docClient.send(new ScanCommand(params));
+      // Используем индекс для получения списка постов
+      params.IndexName = "feed-index";
+      params.KeyConditionExpression = "#t = :type";
+      params.ExpressionAttributeNames = { "#t": "type" };
+      params.ExpressionAttributeValues = { ":type": "POST" };
+
+      result = await docClient.send(new QueryCommand(params));
     }
-    
-    // Сортировка по createdAt (новые первые)
-    const posts = (result.Items || []).sort((a, b) => b.createdAt - a.createdAt);
-    
+
+    // При использовании QueryCommand с ScanIndexForward: false,
+    // данные уже приходят отсортированными от новых к старым.
+    // Сортировка вручную остается только для случая Scan (с тегами).
+    const posts = result.Items || [];
+    if (tagId) {
+      posts.sort((a, b) => b.createdAt - a.createdAt);
+    }
+
     // Формировать nextKey для пагинации
     let nextKey = null;
     if (result.LastEvaluatedKey) {
