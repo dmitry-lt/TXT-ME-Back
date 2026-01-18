@@ -129,6 +129,21 @@ Resources:
         Variables:
           DYNAMODB_URL: ""
 
+  CommentUpdate:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: comments/CommentUpdate
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /posts/{postId}/comments/{commentId}
+            Method: PUT
+      Environment:
+        Variables:
+          DYNAMODB_URL: ""
+
   CommentsList:
     Type: AWS::Serverless::Function
     Properties:
