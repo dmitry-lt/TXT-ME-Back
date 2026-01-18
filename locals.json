@@ -14,6 +14,9 @@
   "CommentCreate": {
     "DYNAMODB_URL": "http://host.docker.internal:8000"
   },
+  "CommentUpdate": {
+    "DYNAMODB_URL": "http://host.docker.internal:8000"
+  },
   "CommentDelete": {
     "DYNAMODB_URL": "http://host.docker.internal:8000"
   },
