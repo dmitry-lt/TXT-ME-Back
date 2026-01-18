@@ -37,18 +37,40 @@ async function feed({ limit, lastKey }) {
 
   const result = await docClient.send(new QueryCommand(params));
 
+  const posts = result.Items || [];
+
+  let nextKey = null;
+
+  if (result.LastEvaluatedKey) {
+    // LOOKAHEAD, чтобы не показывать последнюю пустую страницу, когда общее количество постов кратно размеру страницы
+    const probeParams = {
+      ...params,
+      Limit: 1,
+      ExclusiveStartKey: result.LastEvaluatedKey
+    };
+
+    const probeResult = await docClient.send(
+        new QueryCommand(probeParams)
+    );
+
+    if (probeResult.Items && probeResult.Items.length > 0) {
+      nextKey = encodeURIComponent(
+          JSON.stringify(result.LastEvaluatedKey)
+      );
+    }
+  }
+
   return {
     statusCode: 200,
     headers: corsHeaders,
     body: JSON.stringify({
-      posts: result.Items || [],
-      count: (result.Items || []).length,
-      nextKey: result.LastEvaluatedKey
-          ? encodeURIComponent(JSON.stringify(result.LastEvaluatedKey))
-          : null
+      posts,
+      count: posts.length,
+      nextKey
     })
   };
 }
+
 
 /**
  * Feed с фильтром по tagId
