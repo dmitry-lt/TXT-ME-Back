@@ -79,6 +79,7 @@ export const handler = async (event) => {
       username,
       title,
       content,
+      type: 'POST',
       tags: tags || [],
       createdAt: now,
       updatedAt: now,
