@@ -58,12 +58,26 @@ resource "aws_dynamodb_table" "posts" {
     type = "N"
   }
 
+  attribute {
+    name = "type"
+    type = "S"
+  }
+
+  # индекс для пагинации - соберет все посты в одну партицию "POST" и отсортирует по времени
+  global_secondary_index {
+    name            = "feed-index"
+    hash_key        = "type"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
   global_secondary_index {
     name            = "userId-index"
     hash_key        = "userId"
     projection_type = "ALL"
   }
 
+  # Этот индекс можно оставить или удалить (он теперь менее эффективен, чем FeedIndex)
   global_secondary_index {
     name            = "createdAt-index"
     hash_key        = "createdAt"
