@@ -19,4 +19,4 @@ else
 fi
 
 # txt-me-network docker network, the same as in docker-compose.yml
-sam local start-api --warm-containers LAZY --env-vars locals.json --docker-network txt-me-network
+sam local start-api --warm-containers LAZY --env-vars locals.json --docker-network txt-me-network --host 0.0.0.0
