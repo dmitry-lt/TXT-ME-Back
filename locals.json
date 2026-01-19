@@ -1,77 +1,77 @@
 {
   "AdminUsers": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "AdminUserUpdate": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "AuthLogin": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "AuthRegister": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "CommentCreate": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "CommentUpdate": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "CommentDelete": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "CommentsList": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "PostCreate": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "PostDelete": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "PostUpdate": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "PostsGet": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "PostsList": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "PostsRecent": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "UsersAddAvatar": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "UsersDeleteAvatar": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "UsersDeleteEmail": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "UsersGetProfile": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "UsersGetUserAvatar": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "UsersSetActiveAvatar": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "UsersUpdateEmail": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "UsersUpdatePassword": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "NotificationsCommentsStream": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "NotificationsPostsStream": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
   "NotificationsSendEmail": {
-    "DYNAMODB_URL": "http://host.docker.internal:8000"
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
   }
 }

@@ -1,7 +1,14 @@
 version: '3.8'
+
+networks:
+  txt-me-network:
+    name: txt-me-network
+
 services:
   dynamodb-local:
     image: amazon/dynamodb-local:latest
+    networks:
+      - txt-me-network
     container_name: dynamodb-local
     ports:
       - "8000:8000"
@@ -12,6 +19,8 @@ services:
   # DynamoDB admin console at http://localhost:8001
   dynamodb-admin:
     image: aaronshaf/dynamodb-admin
+    networks:
+      - txt-me-network
     ports:
       - "8001:8001"
     environment:
