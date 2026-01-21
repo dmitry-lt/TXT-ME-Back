@@ -1,4 +1,5 @@
 export default {
+  //Основная задача воркера - подготовить и отдать сафари ответ от поствью
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin");
