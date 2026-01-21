@@ -1,11 +1,10 @@
 export default {
-  //Основная задача воркера - подготовить и отдать сафари ответ от поствью
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin");
     const awsHost = "326ltbm205.execute-api.eu-north-1.amazonaws.com";
 
-    // 1. Предварительный ответ для Safari (CORS preflight)
+    // 1. Предварительный ответ для Safari (CORS preflight) — ТВОЙ ОРИГИНАЛ
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 200,
@@ -19,66 +18,64 @@ export default {
       });
     }
 
-    try {
-      // 2. Формируем новый URL для AWS
-      const newUrl = `https://${awsHost}${url.pathname}${url.search}`;
+    // --- 2. ОБРАБОТКА API (Проксирование с очисткой заголовков) ---
+    if (url.hostname.startsWith("api.")) {
+      try {
+        const newUrl = `https://${awsHost}${url.pathname}${url.search}`;
+        const newHeaders = new Headers(request.headers);
 
-      // Копируем все заголовки оригинального запроса
-      const newHeaders = new Headers(request.headers);
+        // Твоя изощренная очистка "следов" прокси (фикс 403 Forbidden)
+        newHeaders.set("Host", awsHost);
+        newHeaders.delete("x-real-ip");
+        newHeaders.delete("cf-connecting-ip");
+        newHeaders.delete("x-forwarded-proto");
+        newHeaders.delete("x-forwarded-for");
 
-      // ПРИНУДИТЕЛЬНО подменяем Host и очищаем "следы" прокси
-      newHeaders.set("Host", awsHost);
-      newHeaders.delete("x-real-ip");
-      newHeaders.delete("cf-connecting-ip");
-      newHeaders.delete("x-forwarded-proto");
-      newHeaders.delete("x-forwarded-for");
+        newHeaders.set("Accept", "application/json, text/plain, */*");
+        newHeaders.set("Referer", `https://${awsHost}/`);
 
-      // Safari часто шлет сложные Accept-заголовки, упрощаем их для AWS
-      newHeaders.set("Accept", "application/json, text/plain, */*");
-      // Убираем Referer, чтобы AWS не смущал переход с домена на домен
-      newHeaders.set("Referer", `https://${awsHost}/`);
+        const modifiedRequest = new Request(newUrl, {
+          method: request.method,
+          headers: newHeaders,
+          body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : null,
+          redirect: 'follow'
+        });
 
-      // 3. Создаем модифицированный запрос к AWS
-      const modifiedRequest = new Request(newUrl, {
-        method: request.method,
-        headers: newHeaders,
-        body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : null,
-        redirect: 'follow'
-      });
+        const response = await fetch(modifiedRequest);
+        const resHeaders = new Headers(response.headers);
 
-      const response = await fetch(modifiedRequest);
+        resHeaders.set("Access-Control-Allow-Origin", origin || "*");
+        resHeaders.set("Access-Control-Allow-Credentials", "true");
 
-      // 4. Подготавливаем ответ для браузера (Изощренная очистка)
-      const responseHeaders = new Headers(response.headers);
+        // Твоя очистка заголовков безопасности для Safari
+        resHeaders.delete("Content-Security-Policy");
+        resHeaders.delete("X-Frame-Options");
+        resHeaders.delete("X-Content-Type-Options");
+        resHeaders.delete("X-XSS-Protection");
 
-      responseHeaders.set("Access-Control-Allow-Origin", origin || "*");
-      responseHeaders.set("Access-Control-Allow-Credentials", "true");
-
-      // Удаляем заголовки, которые заставляют Safari блокировать контент
-      responseHeaders.delete("Content-Security-Policy");
-      responseHeaders.delete("X-Frame-Options");
-      responseHeaders.delete("X-Content-Type-Options");
-      responseHeaders.delete("X-XSS-Protection");
-
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: responseHeaders
-      });
-
-    } catch (err) {
-      console.error("Worker Error:", err.message);
-
-      return new Response(JSON.stringify({
-        error: "Worker Gateway Error",
-        message: err.message
-      }), {
-        status: 502,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": origin || "*"
-        }
-      });
+        return new Response(response.body, { status: response.status, headers: resHeaders });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "API Gateway Error", message: err.message }), { status: 502 });
+      }
     }
+
+    // --- 3. ОБРАБОТКА ФРОНТЕНДА (Умные ссылки) ---
+
+    // Пропускаем статические файлы (картинки, JS, CSS) без изменений
+    const isStatic = /\.(js|css|png|jpg|jpeg|gif|svg|ico|json)$/.test(url.pathname);
+    if (isStatic) {
+      return fetch(request);
+    }
+
+    // Если это прямая ссылка на пост (например, /posts/123)
+    if (url.pathname.startsWith("/posts/") || url.pathname.length > 1) {
+      // Запрашиваем index.html напрямую из корня, чтобы React подхватил роут
+      // В браузере при этом останется красивая ссылка автора
+      const indexUrl = new URL("/index.html", url.origin);
+      return fetch(indexUrl);
+    }
+
+    // Во всех остальных случаях (главная страница) просто работаем штатно
+    return fetch(request);
   }
 };
