@@ -4,7 +4,7 @@ export default {
     const origin = request.headers.get("Origin");
     const awsHost = "326ltbm205.execute-api.eu-north-1.amazonaws.com";
 
-    // 1. Предварительный ответ для Safari (CORS preflight) — ТВОЙ ОРИГИНАЛ
+    // 1. Предварительный ответ для Safari (CORS)
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 200,
@@ -18,64 +18,83 @@ export default {
       });
     }
 
-    // --- 2. ОБРАБОТКА API (Проксирование с очисткой заголовков) ---
-    if (url.hostname.startsWith("api.")) {
-      try {
+    try {
+      // --- 2. ОБРАБОТКА API (api.txt-me.club) ---
+      if (url.hostname.startsWith("api.")) {
         const newUrl = `https://${awsHost}${url.pathname}${url.search}`;
         const newHeaders = new Headers(request.headers);
 
-        // Твоя изощренная очистка "следов" прокси (фикс 403 Forbidden)
+        // Твоя изощренная очистка (фикс 403 Forbidden для маководов)
         newHeaders.set("Host", awsHost);
         newHeaders.delete("x-real-ip");
         newHeaders.delete("cf-connecting-ip");
         newHeaders.delete("x-forwarded-proto");
         newHeaders.delete("x-forwarded-for");
-
         newHeaders.set("Accept", "application/json, text/plain, */*");
         newHeaders.set("Referer", `https://${awsHost}/`);
 
-        const modifiedRequest = new Request(newUrl, {
+        const apiRequest = new Request(newUrl, {
           method: request.method,
           headers: newHeaders,
           body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : null,
           redirect: 'follow'
         });
 
-        const response = await fetch(modifiedRequest);
+        const response = await fetch(apiRequest);
         const resHeaders = new Headers(response.headers);
 
         resHeaders.set("Access-Control-Allow-Origin", origin || "*");
         resHeaders.set("Access-Control-Allow-Credentials", "true");
 
-        // Твоя очистка заголовков безопасности для Safari
+        // Очистка заголовков безопасности, которые душат Safari
         resHeaders.delete("Content-Security-Policy");
         resHeaders.delete("X-Frame-Options");
         resHeaders.delete("X-Content-Type-Options");
-        resHeaders.delete("X-XSS-Protection");
 
         return new Response(response.body, { status: response.status, headers: resHeaders });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "API Gateway Error", message: err.message }), { status: 502 });
       }
+
+      // --- 3. ОБРАБОТКА ФРОНТЕНДА (S3) ---
+      const isStatic = /\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff2?)$/.test(url.pathname);
+
+      let finalResponse;
+      if (isStatic) {
+        // Запрос за конкретным файлом (скрипты, стили)
+        finalResponse = await fetch(request);
+      } else {
+        // Прямая ссылка на пост или главная -> отдаем index.html
+        // Это заставляет React подхватить роут без ошибки 404 от S3
+        finalResponse = await fetch(new URL("/index.html", url.origin));
+      }
+
+      // Подготовка заголовков фронтенда
+      const frontendHeaders = new Headers(finalResponse.headers);
+      frontendHeaders.set("Access-Control-Allow-Origin", origin || "*");
+
+      // Гарантируем правильный MIME-тип для HTML (защита от белого экрана в Safari)
+      if (!isStatic) {
+        frontendHeaders.set("Content-Type", "text/html; charset=utf-8");
+      }
+
+      // Удаляем заголовки, из-за которых Safari может блокировать JS
+      frontendHeaders.delete("Content-Security-Policy");
+      frontendHeaders.delete("X-Frame-Options");
+      frontendHeaders.delete("X-Content-Type-Options");
+
+      return new Response(finalResponse.body, {
+        status: finalResponse.status,
+        headers: frontendHeaders
+      });
+
+    } catch (err) {
+      // Глобальный предохранитель, чтобы не было пустого экрана при сбое воркера
+      return new Response(JSON.stringify({ error: "Worker Error", details: err.message }), {
+        status: 502,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
     }
-
-    // --- 3. ОБРАБОТКА ФРОНТЕНДА (Умные ссылки) ---
-
-    // Пропускаем статические файлы (картинки, JS, CSS) без изменений
-    const isStatic = /\.(js|css|png|jpg|jpeg|gif|svg|ico|json)$/.test(url.pathname);
-    if (isStatic) {
-      return fetch(request);
-    }
-
-    // Если это прямая ссылка на пост (например, /posts/123)
-    if (url.pathname.startsWith("/posts/") || url.pathname.length > 1) {
-      // Запрашиваем index.html напрямую из корня, чтобы React подхватил роут
-      // В браузере при этом останется красивая ссылка автора
-      const indexUrl = new URL("/index.html", url.origin);
-      return fetch(indexUrl);
-    }
-
-    // Во всех остальных случаях (главная страница) просто работаем штатно
-    return fetch(request);
   }
 };
