@@ -1,6 +1,7 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, GetCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
 const jwt = require("jsonwebtoken");
+const { Jimp } = require("jimp");
 
 const client = new DynamoDBClient({ region: 'eu-north-1', ...(process.env.DYNAMODB_URL && { endpoint: process.env.DYNAMODB_URL }) });
 const docClient = DynamoDBDocumentClient.from(client);
@@ -28,6 +29,54 @@ exports.handler = async (event) => {
       };
     }
 
+    // Extract base64 and resize to 50x50
+    const base64Match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!base64Match) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: "Invalid image data format" }),
+      };
+    }
+    const [, formatRaw, base64Data] = base64Match;
+    const format = formatRaw.toLowerCase();
+    const FORMAT_MIME = {
+      jpeg: "image/jpeg",
+      jpg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+    };
+    const outputMime = FORMAT_MIME[format];
+    if (!outputMime) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: "Unsupported image format (allowed: jpeg, png, gif)" }),
+      };
+    }
+    const buffer = Buffer.from(base64Data, "base64");
+    let resizedBuffer;
+    try {
+      const image = await Jimp.read(buffer);
+      // DoS protection: reject oversized images
+      if (image.width > 2500 || image.height > 2500) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: "Image too large (max 2500x2500)" }),
+        };
+      }
+      image.cover({ w: 50, h: 50 });
+      resizedBuffer = await image.getBuffer(outputMime);
+    } catch (err) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: "Invalid image data" }),
+      };
+    }
+    const resizedDataUrl = `data:${outputMime};base64,${resizedBuffer.toString("base64")}`;
+
     const result = await docClient.send(
       new GetCommand({
         TableName: "CMS-Users",
@@ -47,7 +96,7 @@ exports.handler = async (event) => {
 
     const newAvatar = {
       avatarId: Date.now().toString(),
-      dataUrl,
+      dataUrl: resizedDataUrl,
       uploadedAt: Date.now(),
     };
     avatars.push(newAvatar);

@@ -34,7 +34,7 @@ exports.handler = async (event) => {
     const userItem = result.Item;
     if (userItem.activeAvatarId === avatarId) {
       return {
-        statusCode: 400,
+        statusCode: 409,
         headers: corsHeaders,
         body: JSON.stringify({ error: "Cannot delete active avatar" }),
       };

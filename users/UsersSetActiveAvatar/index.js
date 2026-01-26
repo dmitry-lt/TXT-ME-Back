@@ -30,7 +30,8 @@ exports.handler = async (event) => {
 
     const userToken = jwt.verify(token, JWT_SECRET);
 
-    const avatarId = event.pathParameters?.avatarId;
+    const body = JSON.parse(event.body || "{}");
+    const avatarId = body.avatarId;
     if (!avatarId) {
       return {
         statusCode: 400,
@@ -71,7 +72,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ message: "Active avatar set", avatarId }),
+      body: JSON.stringify({ message: "Active avatar updated", avatarId }),
     };
   } catch (error) {
     console.error("Full error:", error.message, error.stack);

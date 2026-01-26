@@ -532,7 +532,7 @@
       "post": {
         "tags": ["User Profile"],
         "summary": "Upload avatar",
-        "description": "Upload avatar as base64 data URL. Max 10KB, resized to 50x50px JPEG.",
+        "description": "Upload avatar as base64 data URL (jpeg/jpg/png/gif). Input is limited to 10000 characters and images larger than 2500x2500 are rejected. Image is center-cropped to 50x50 and returned in the same format.",
         "security": [{"BearerAuth": []}],
         "requestBody": {
           "required": true,
@@ -540,6 +540,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["dataUrl"],
                 "properties": {
                   "dataUrl": {
                     "type": "string",
@@ -551,9 +552,29 @@
           }
         },
         "responses": {
-          "201": {"description": "Avatar uploaded"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "400": {"description": "Invalid image or size exceeds 10KB"}
+          "200": {
+            "description": "Avatar uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "avatar": {
+                      "type": "object",
+                      "properties": {
+                        "avatarId": {"type": "string"},
+                        "dataUrl": {"type": "string"},
+                        "uploadedAt": {"type": "number"}
+                      }
+                    },
+                    "activeAvatarId": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Invalid image data or constraints exceeded"},
+          "500": {"description": "Internal error"}
         }
       }
     },
@@ -566,8 +587,22 @@
           {"name": "avatarId", "in": "path", "required": true, "schema": {"type": "string"}}
         ],
         "responses": {
-          "204": {"description": "Avatar deleted"},
-          "401": {"$ref": "#/components/responses/Unauthorized"}
+          "200": {
+            "description": "Avatar deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {"type": "string"},
+                    "avatarId": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "409": {"description": "Cannot delete active avatar"},
+          "500": {"description": "Internal error"}
         }
       }
     },
@@ -582,6 +617,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["avatarId"],
                 "properties": {
                   "avatarId": {"type": "string"}
                 }
@@ -590,17 +626,40 @@
           }
         },
         "responses": {
-          "200": {"description": "Active avatar set"},
-          "401": {"$ref": "#/components/responses/Unauthorized"}
+          "200": {
+            "description": "Active avatar updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {"type": "string"},
+                    "avatarId": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Missing avatarId"},
+          "401": {"description": "Missing token"},
+          "404": {"description": "Avatar not found"},
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {"schema": {"type": "object", "properties": {"error": {"type": "string"}}}}
+            }
+          }
         }
       }
     },
-    "/admin/users/{userId}/avatar": {
+    "/admin/users/{userId}/avatar/{avatarId}": {
       "get": {
         "tags": ["Admin"],
-        "summary": "Get user avatar by userId",
+        "summary": "Get user avatar",
+        "description": "Get user avatar by ID. Use 'active' for current avatar.",
         "parameters": [
-          {"name": "userId", "in": "path", "required": true, "schema": {"type": "string"}}
+          {"name": "userId", "in": "path", "required": true, "schema": {"type": "string"}},
+          {"name": "avatarId", "in": "path", "required": true, "schema": {"type": "string"}}
         ],
         "responses": {
           "200": {
@@ -608,10 +667,39 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "userId": {"type": "string"},
+                        "username": {"type": "string"},
+                        "avatarDataUrl": {"type": "string"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "userId": {"type": "string"},
+                        "username": {"type": "string"},
+                        "avatarId": {"type": "string"},
+                        "avatarDataUrl": {"type": "string"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {"description": "User not found or avatar not found"},
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
                   "type": "object",
                   "properties": {
-                    "avatarId": {"type": "string"},
-                    "dataUrl": {"type": "string"}
+                    "error": {"type": "string"},
+                    "details": {"type": "string"}
                   }
                 }
               }

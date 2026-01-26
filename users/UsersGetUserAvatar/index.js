@@ -21,16 +21,18 @@ exports.handler = async (event) => {
       };
     }
 
-    const userId = event.pathParameters.userId;
-    
-    console.log('Fetching avatar for userId:', userId);
-    
+    const pathParams = event.pathParameters || {};
+    const userId = pathParams.userId;
+    const requestedAvatarId = pathParams.avatarId;
+
+    console.log('Fetching avatar for userId:', userId, 'avatarId:', requestedAvatarId);
+
     // Получаем пользователя по userId
     const result = await dynamodb.send(new GetCommand({
       TableName: 'CMS-Users',
       Key: { userId }
     }));
-    
+
     if (!result.Item) {
       console.log('User not found:', userId);
       return {
@@ -39,23 +41,38 @@ exports.handler = async (event) => {
         body: JSON.stringify({ error: 'User not found' })
       };
     }
-    
+
     const user = result.Item;
     const avatars = user.avatars || [];
-    const activeAvatar = avatars.find(a => a.avatarId === user.activeAvatarId);
-    
+    const isActiveRequest = requestedAvatarId === 'active';
+    const targetAvatarId = isActiveRequest ? user.activeAvatarId : requestedAvatarId;
+    const avatar = targetAvatarId ? avatars.find(a => a.avatarId === targetAvatarId) : null;
+
     console.log('User found:', user.username, 'avatars:', avatars.length);
-    
+
+    if (!avatar) {
+      return {
+        statusCode: 404,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Avatar not found' })
+      };
+    }
+
+    // Endpoint 4 (specific avatarId): { userId, username, avatarDataUrl }
+    // Endpoint 5 (active): { userId, username, avatarId, avatarDataUrl }
+    const response = {
+      userId: user.userId,
+      username: user.username,
+      avatarDataUrl: avatar.dataUrl
+    };
+    if (isActiveRequest) {
+      response.avatarId = avatar.avatarId;
+    }
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({
-        userId: user.userId,
-        username: user.username,
-        avatars: avatars,
-        activeAvatarId: user.activeAvatarId || null,
-        avatarDataUrl: activeAvatar?.dataUrl || null
-      })
+      body: JSON.stringify(response)
     };
   } catch (error) {
     console.error('Error:', error);
