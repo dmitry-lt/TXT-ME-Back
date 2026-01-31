@@ -1,0 +1,9 @@
+{
+  "name": "posts-list-v2",
+  "version": "1.0.0",
+  "main": "index.mjs",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.958.0",
+    "@aws-sdk/lib-dynamodb": "^3.958.0"
+  }
+}

@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import jwt from 'jsonwebtoken';
 
 const client = new DynamoDBClient({ region: 'eu-north-1', ...(process.env.DYNAMODB_URL && { endpoint: process.env.DYNAMODB_URL }) });
@@ -8,6 +8,8 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const JWT_SECRET = process.env.JWT_SECRET || 'cms-jwt-secret-prod-2025';
 const POSTS_TABLE = 'CMS-Posts';
 const USERS_TABLE = 'CMS-Users';
+const TAG_POSTS_TABLE = 'CMS-TagPosts';
+const TAGS_TABLE = 'CMS-Tags';
 
 export const handler = async (event) => {
   const headers = {
@@ -101,12 +103,56 @@ export const handler = async (event) => {
     const updateExpression = 'SET ' + updateExpressions.filter(e => !e.startsWith('REMOVE')).join(', ') +
                              (updateExpressions.find(e => e.startsWith('REMOVE')) ? ' REMOVE postAvatarId' : '');
 
-    await dynamodb.send(new UpdateCommand({
-      TableName: POSTS_TABLE,
-      Key: { postId },
-      UpdateExpression: updateExpression,
-      ExpressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
-      ExpressionAttributeValues: expressionAttributeValues,
+    const transactItems = [
+      {
+        Update: {
+          TableName: POSTS_TABLE,
+          Key: { postId },
+          UpdateExpression: updateExpression,
+          ExpressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
+          ExpressionAttributeValues: expressionAttributeValues,
+        }
+      }
+    ];
+
+    // Handle tag changes
+    if (tags !== undefined) {
+      const oldTags = getResult.Item.tags || [];
+      const newTags = tags || [];
+      const createdAt = getResult.Item.createdAt;
+
+      // Tags to remove
+      const toRemove = oldTags.filter(t => !newTags.includes(t));
+      for (const tag of toRemove) {
+        transactItems.push({
+          Delete: {
+            TableName: TAG_POSTS_TABLE,
+            Key: { tag, createdAt }
+          }
+        });
+      }
+
+      // Tags to add
+      const toAdd = newTags.filter(t => !oldTags.includes(t));
+      for (const tag of toAdd) {
+        transactItems.push({
+          Put: {
+            TableName: TAG_POSTS_TABLE,
+            Item: { tag, createdAt, postId }
+          }
+        });
+        transactItems.push({
+          Put: {
+            TableName: TAGS_TABLE,
+            Item: { tagId: tag, name: tag },
+            ConditionExpression: 'attribute_not_exists(tagId)'
+          }
+        });
+      }
+    }
+
+    await dynamodb.send(new TransactWriteCommand({
+      TransactItems: transactItems
     }));
 
     return {

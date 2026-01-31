@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 
@@ -9,6 +9,8 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const JWT_SECRET = process.env.JWT_SECRET || 'cms-jwt-secret-prod-2025';
 const POSTS_TABLE = 'CMS-Posts';
 const USERS_TABLE = 'CMS-Users';
+const TAG_POSTS_TABLE = 'CMS-TagPosts';
+const TAGS_TABLE = 'CMS-Tags';
 
 export const handler = async (event) => {
   const headers = {
@@ -83,15 +85,52 @@ export const handler = async (event) => {
       createdAt: now,
       updatedAt: now,
       commentCount: 0,
+      feedKey: 'GLOBAL',
     };
 
     if (avatarIdToUse) {
       post.postAvatarId = avatarIdToUse;
     }
 
-    await dynamodb.send(new PutCommand({
-      TableName: POSTS_TABLE,
-      Item: post,
+    // Use TransactWrite to ensure consistency between Post and Tag mappings
+    const transactItems = [
+      {
+        Put: {
+          TableName: POSTS_TABLE,
+          Item: post,
+        }
+      }
+    ];
+
+    // Add tag mappings
+    if (post.tags && post.tags.length > 0) {
+      for (const tag of post.tags) {
+        transactItems.push({
+          Put: {
+            TableName: TAG_POSTS_TABLE,
+            Item: {
+              tag,
+              createdAt: post.createdAt,
+              postId: post.postId
+            }
+          }
+        });
+        
+        // Optional: Ensure tag exists in CMS-Tags
+        transactItems.push({
+          Put: {
+            TableName: TAGS_TABLE,
+            Item: { tagId: tag, name: tag },
+            ConditionExpression: 'attribute_not_exists(tagId)'
+          }
+        });
+      }
+    }
+
+    // DynamoDB Transaction limit is 100 items. If post has > 49 tags, this might fail.
+    // Assuming tags are reasonably few.
+    await dynamodb.send(new TransactWriteCommand({
+      TransactItems: transactItems
     }));
 
     return {

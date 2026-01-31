@@ -41,6 +41,9 @@
   "PostsRecent": {
     "DYNAMODB_URL": "http://dynamodb-local:8000"
   },
+  "PostsListV2": {
+    "DYNAMODB_URL": "http://dynamodb-local:8000"
+  },
   "UsersAddAvatar": {
     "DYNAMODB_URL": "http://dynamodb-local:8000"
   },

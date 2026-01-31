@@ -240,6 +240,26 @@ Resources:
         Variables:
           DYNAMODB_URL: ""
 
+  PostsListV2:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: posts/PostsListV2
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /v2/posts
+            Method: GET
+        ApiOptions: # CORS preflight
+          Type: Api
+          Properties:
+            Path: /v2/posts
+            Method: OPTIONS
+      Environment:
+        Variables:
+          DYNAMODB_URL: ""
+
   PostsRecent:
     Type: AWS::Serverless::Function
     Properties:

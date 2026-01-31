@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, DeleteCommand, QueryCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, DeleteCommand, QueryCommand, BatchWriteCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import jwt from "jsonwebtoken";
 
 const client = new DynamoDBClient({ region: 'eu-north-1', ...(process.env.DYNAMODB_URL && { endpoint: process.env.DYNAMODB_URL }) });
@@ -110,18 +110,41 @@ export const handler = async (event) => {
       }
     }
     
-    const deleteParams = {
-      TableName: "CMS-Posts",
-      Key: { postId }
-    };
-    
-    await docClient.send(new DeleteCommand(deleteParams));
+    // Prepare transaction to delete post and tag mappings
+    const transactItems = [
+      {
+        Delete: {
+          TableName: "CMS-Posts",
+          Key: { postId }
+        }
+      }
+    ];
+
+    // Add tag mapping deletions
+    const post = getResult.Item;
+    if (post.tags && Array.isArray(post.tags)) {
+      for (const tag of post.tags) {
+        transactItems.push({
+          Delete: {
+            TableName: "CMS-TagPosts",
+            Key: { 
+              tag, 
+              createdAt: post.createdAt 
+            }
+          }
+        });
+      }
+    }
+
+    await docClient.send(new TransactWriteCommand({
+      TransactItems: transactItems
+    }));
     
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({ 
-        message: "Post and associated comments deleted successfully",
+        message: "Post, associated comments, and tag mappings deleted successfully",
         postId,
         deletedComments: commentsResult.Items?.length || 0
       })
