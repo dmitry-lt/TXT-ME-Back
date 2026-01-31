@@ -54,6 +54,11 @@ Resources:
           Properties:
             Path: /auth/login
             Method: POST
+        ApiOptions: # CORS preflight
+          Type: Api
+          Properties:
+            Path: /auth/login
+            Method: OPTIONS
       Environment:
         Variables:
           DYNAMODB_URL: ""
@@ -69,6 +74,11 @@ Resources:
           Properties:
             Path: /auth/register
             Method: POST
+        ApiOptions: # CORS preflight
+          Type: Api
+          Properties:
+            Path: /auth/register
+            Method: OPTIONS
       Environment:
         Variables:
           DYNAMODB_URL: ""
