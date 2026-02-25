@@ -32,6 +32,30 @@ export const handler = async (event) => {
       limit = '10' 
     } = event.queryStringParameters || {};
 
+    // Determine viewer max visibility
+    let maxVisibility = 0; // Default for anonymous
+    const token = event.headers.Authorization?.replace('Bearer ', '') || 
+                  event.headers.authorization?.replace('Bearer ', '');
+    
+    if (token) {
+      try {
+        const jwt = await import('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'cms-jwt-secret-prod-2025';
+        const decoded = jwt.default.verify(token, JWT_SECRET);
+        const userRole = decoded.role || 'KOMMENTATOR';
+        
+        const roleMaxVisibility = {
+          'KOMMENTATOR': 10,
+          'AVTOR': 20,
+          'SMOTRITEL': 30,
+          'NASTOIATEL': 40
+        };
+        maxVisibility = roleMaxVisibility[userRole] || 10;
+      } catch (e) {
+        console.error('JWT verification failed:', e);
+      }
+    }
+
     const pageSize = parseInt(limit, 10);
     
     if (since && until) {
@@ -46,6 +70,8 @@ export const handler = async (event) => {
     let queryParams = {
       Limit: pageSize + 1,
       ScanIndexForward: false, // Default to newest first
+      FilterExpression: 'attribute_not_exists(visibilityLevel) OR visibilityLevel <= :max',
+      ExpressionAttributeValues: { ':max': maxVisibility }
     };
 
     // 1. Determine the mode and query target
@@ -54,12 +80,11 @@ export const handler = async (event) => {
       queryParams.TableName = TAG_POSTS_TABLE;
       queryParams.KeyConditionExpression = '#t = :tag';
       queryParams.ExpressionAttributeNames = { '#t': 'tag' };
-      queryParams.ExpressionAttributeValues = { ':tag': tag };
+      queryParams.ExpressionAttributeValues[':tag'] = tag;
       
       applyPagination(queryParams, since, until);
       
-      const result = await dynamodb.send(new QueryCommand(queryParams));
-      const tagMappings = result.Items || [];
+      const tagMappings = await fetchWithFilling(queryParams, pageSize);
       
       if (tagMappings.length > 0) {
         // Hydrate full posts
@@ -83,12 +108,11 @@ export const handler = async (event) => {
       queryParams.TableName = POSTS_TABLE;
       queryParams.IndexName = 'userId-createdAt-index';
       queryParams.KeyConditionExpression = 'userId = :uid';
-      queryParams.ExpressionAttributeValues = { ':uid': user.userId };
+      queryParams.ExpressionAttributeValues[':uid'] = user.userId;
       
       applyPagination(queryParams, since, until);
       
-      const result = await dynamodb.send(new QueryCommand(queryParams));
-      const keys = result.Items || [];
+      const keys = await fetchWithFilling(queryParams, pageSize);
       if (keys.length > 0) {
         items = await hydratePosts(keys.map(k => k.postId), keys);
       }
@@ -103,16 +127,13 @@ export const handler = async (event) => {
       queryParams.TableName = POSTS_TABLE;
       queryParams.IndexName = 'feedKey-createdAt-index';
       queryParams.KeyConditionExpression = 'feedKey = :fk AND createdAt BETWEEN :start AND :end';
-      queryParams.ExpressionAttributeValues = { 
-        ':fk': 'GLOBAL',
-        ':start': startMs,
-        ':end': endMs
-      };
+      queryParams.ExpressionAttributeValues[':fk'] = 'GLOBAL';
+      queryParams.ExpressionAttributeValues[':start'] = startMs;
+      queryParams.ExpressionAttributeValues[':end'] = endMs;
       
       applyPagination(queryParams, since, until, true); // true means bounded by day
       
-      const result = await dynamodb.send(new QueryCommand(queryParams));
-      const keys = result.Items || [];
+      const keys = await fetchWithFilling(queryParams, pageSize);
       if (keys.length > 0) {
         items = await hydratePosts(keys.map(k => k.postId), keys);
       }
@@ -121,12 +142,11 @@ export const handler = async (event) => {
       queryParams.TableName = POSTS_TABLE;
       queryParams.IndexName = 'feedKey-createdAt-index';
       queryParams.KeyConditionExpression = 'feedKey = :fk';
-      queryParams.ExpressionAttributeValues = { ':fk': 'GLOBAL' };
+      queryParams.ExpressionAttributeValues[':fk'] = 'GLOBAL';
       
       applyPagination(queryParams, since, until);
       
-      const result = await dynamodb.send(new QueryCommand(queryParams));
-      const keys = result.Items || [];
+      const keys = await fetchWithFilling(queryParams, pageSize);
       if (keys.length > 0) {
         items = await hydratePosts(keys.map(k => k.postId), keys);
       }
@@ -237,4 +257,31 @@ async function hydratePosts(postIds, orderedKeys) {
   return orderedKeys
     .map(key => postMap[key.postId])
     .filter(post => !!post);
+}
+
+async function fetchWithFilling(params, pageSize) {
+  const collectedItems = [];
+  let currentParams = { ...params };
+  let lastKey = null;
+
+  do {
+    if (lastKey) {
+      currentParams.ExclusiveStartKey = lastKey;
+    }
+    
+    // Adjust Limit: we need (pageSize + 1) items TOTAL, but we might have some already.
+    // However, DynamoDB's Limit is on items READ, not items RETURNED after FilterExpression.
+    // So we use a reasonable chunk size.
+    currentParams.Limit = Math.max(pageSize * 2, 50);
+
+    const result = await dynamodb.send(new QueryCommand(currentParams));
+    const items = result.Items || [];
+    collectedItems.push(...items);
+    
+    lastKey = result.LastEvaluatedKey;
+    
+    // Stop if we have enough items OR no more items to fetch
+  } while (collectedItems.length <= pageSize && lastKey);
+
+  return collectedItems;
 }
