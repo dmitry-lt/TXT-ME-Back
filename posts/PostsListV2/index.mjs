@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, BatchGetCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import jwt from 'jsonwebtoken';
 
 const client = new DynamoDBClient({ 
   region: 'eu-north-1', 
@@ -39,9 +40,8 @@ export const handler = async (event) => {
     
     if (token) {
       try {
-        const jwt = await import('jsonwebtoken');
         const JWT_SECRET = process.env.JWT_SECRET || 'cms-jwt-secret-prod-2025';
-        const decoded = jwt.default.verify(token, JWT_SECRET);
+        const decoded = jwt.verify(token, JWT_SECRET);
         const userRole = decoded.role || 'KOMMENTATOR';
         
         const roleMaxVisibility = {
