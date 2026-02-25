@@ -36,10 +36,40 @@ export const handler = async (event) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.sub || decoded.userId;
+    const userRole = decoded.role || 'KOMMENTATOR';
 
     const postId = event.pathParameters.id;
     const body = JSON.parse(event.body);
-    const { title, content, tags, postAvatarId } = body;
+    const { title, content, tags, postAvatarId, visibilityLevel } = body;
+
+    // Валидация visibilityLevel
+    const roleMaxVisibility = {
+      'KOMMENTATOR': 10,
+      'AVTOR': 20,
+      'SMOTRITEL': 30,
+      'NASTOIATEL': 40
+    };
+
+    const maxAllowed = roleMaxVisibility[userRole] || 0;
+    const requestedVisibility = visibilityLevel !== undefined ? Number(visibilityLevel) : undefined;
+
+    if (requestedVisibility !== undefined) {
+      if (requestedVisibility > maxAllowed) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: `Forbidden: Your role allows max visibility level ${maxAllowed}` }),
+        };
+      }
+
+      if (![0, 10, 20, 30, 40].includes(requestedVisibility)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Invalid visibility level. Must be 0, 10, 20, 30, or 40' }),
+        };
+      }
+    }
 
     // Проверяем существование поста и права
     const getResult = await dynamodb.send(new GetCommand({
@@ -86,6 +116,11 @@ export const handler = async (event) => {
       expressionAttributeValues[':tags'] = tags || [];
     }
 
+    if (requestedVisibility !== undefined) {
+      updateExpressions.push('visibilityLevel = :visibilityLevel');
+      expressionAttributeValues[':visibilityLevel'] = requestedVisibility;
+    }
+
     if (postAvatarId !== undefined) {
       if (postAvatarId === null || postAvatarId === '') {
         // Удаляем аватар
@@ -115,12 +150,14 @@ export const handler = async (event) => {
       }
     ];
 
-    // Handle tag changes
-    if (tags !== undefined) {
-      const oldTags = getResult.Item.tags || [];
-      const newTags = tags || [];
-      const createdAt = getResult.Item.createdAt;
+    // Handle tag and visibility changes
+    const oldTags = getResult.Item.tags || [];
+    const newTags = tags !== undefined ? (tags || []) : oldTags;
+    const createdAt = getResult.Item.createdAt;
+    const currentVisibility = requestedVisibility !== undefined ? requestedVisibility : (getResult.Item.visibilityLevel || 0);
+    const visibilityChanged = requestedVisibility !== undefined && requestedVisibility !== getResult.Item.visibilityLevel;
 
+    if (tags !== undefined || visibilityChanged) {
       // Tags to remove
       const toRemove = oldTags.filter(t => !newTags.includes(t));
       for (const tag of toRemove) {
@@ -132,23 +169,37 @@ export const handler = async (event) => {
         });
       }
 
-      // Tags to add
+      // Tags to add (newly added tags)
       const toAdd = newTags.filter(t => !oldTags.includes(t));
       for (const tag of toAdd) {
         transactItems.push({
           Put: {
             TableName: TAG_POSTS_TABLE,
-            Item: { tag, createdAt, postId }
+            Item: { tag, createdAt, postId, visibilityLevel: currentVisibility }
           }
         });
+      }
+
+      // Tags that stayed but need visibility update
+      if (visibilityChanged) {
+        const stayedTags = newTags.filter(t => oldTags.includes(t));
+        for (const tag of stayedTags) {
+          transactItems.push({
+            Put: {
+              TableName: TAG_POSTS_TABLE,
+              Item: { tag, createdAt, postId, visibilityLevel: currentVisibility }
+            }
+          });
+        }
       }
 
       await dynamodb.send(new TransactWriteCommand({
         TransactItems: transactItems
       }));
 
-      // Ensure tags exist in CMS-Tags (outside of transaction)
-      for (const tag of toAdd) {
+      // Ensure new tags exist in CMS-Tags (outside of transaction)
+      const addedTags = newTags.filter(t => !oldTags.includes(t));
+      for (const tag of addedTags) {
         try {
           await dynamodb.send(new PutCommand({
             TableName: TAGS_TABLE,

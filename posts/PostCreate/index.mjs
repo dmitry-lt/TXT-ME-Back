@@ -39,10 +39,38 @@ export const handler = async (event) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.sub || decoded.userId;
     const username = decoded.username;
+    const userRole = decoded.role || 'KOMMENTATOR';
 
     // Парсим body
     const body = JSON.parse(event.body);
-    const { title, content, tags, postAvatarId } = body;
+    const { title, content, tags, postAvatarId, visibilityLevel } = body;
+
+    // Валидация visibilityLevel
+    const roleMaxVisibility = {
+      'KOMMENTATOR': 10,
+      'AVTOR': 20,
+      'SMOTRITEL': 30,
+      'NASTOIATEL': 40
+    };
+
+    const maxAllowed = roleMaxVisibility[userRole] || 0;
+    const requestedVisibility = visibilityLevel !== undefined ? Number(visibilityLevel) : 0;
+
+    if (requestedVisibility > maxAllowed) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ error: `Forbidden: Your role allows max visibility level ${maxAllowed}` }),
+      };
+    }
+
+    if (![0, 10, 20, 30, 40].includes(requestedVisibility)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Invalid visibility level. Must be 0, 10, 20, 30, or 40' }),
+      };
+    }
 
     // Валидация
     if (!title || !content) {
@@ -86,6 +114,7 @@ export const handler = async (event) => {
       updatedAt: now,
       commentCount: 0,
       feedKey: 'GLOBAL',
+      visibilityLevel: requestedVisibility,
     };
 
     if (avatarIdToUse) {
@@ -111,7 +140,8 @@ export const handler = async (event) => {
             Item: {
               tag,
               createdAt: post.createdAt,
-              postId: post.postId
+              postId: post.postId,
+              visibilityLevel: post.visibilityLevel
             }
           }
         });
