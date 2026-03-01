@@ -43,9 +43,9 @@ export const handler = async (event) => {
 
     // Парсим body
     const body = JSON.parse(event.body);
-    const { title, content, tags, postAvatarId, visibilityLevel } = body;
+    const { title, content, tags, postAvatarId, visibilityLevel, commentLevel } = body;
 
-    // Валидация visibilityLevel
+    // Валидация visibilityLevel и commentLevel
     const roleMaxVisibility = {
       'KOMMENTATOR': 10,
       'AVTOR': 20,
@@ -55,6 +55,7 @@ export const handler = async (event) => {
 
     const maxAllowed = roleMaxVisibility[userRole] || 0;
     const requestedVisibility = visibilityLevel !== undefined ? Number(visibilityLevel) : 0;
+    const requestedCommentLevel = commentLevel !== undefined ? Number(commentLevel) : 0;
 
     if (requestedVisibility > maxAllowed) {
       return {
@@ -69,6 +70,22 @@ export const handler = async (event) => {
         statusCode: 400,
         headers,
         body: JSON.stringify({ error: 'Invalid visibility level. Must be 0, 10, 20, 30, or 40' }),
+      };
+    }
+
+    if (requestedCommentLevel > maxAllowed) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ error: `Forbidden: Your role allows max comment level ${maxAllowed}` }),
+      };
+    }
+
+    if (![0, 10, 20, 30, 40].includes(requestedCommentLevel)) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Invalid comment level. Must be 0, 10, 20, 30, or 40' }),
       };
     }
 
@@ -115,6 +132,7 @@ export const handler = async (event) => {
       commentCount: 0,
       feedKey: 'GLOBAL',
       visibilityLevel: requestedVisibility,
+      commentLevel: requestedCommentLevel,
     };
 
     if (avatarIdToUse) {

@@ -40,9 +40,9 @@ export const handler = async (event) => {
 
     const postId = event.pathParameters.id;
     const body = JSON.parse(event.body);
-    const { title, content, tags, postAvatarId, visibilityLevel } = body;
+    const { title, content, tags, postAvatarId, visibilityLevel, commentLevel } = body;
 
-    // Валидация visibilityLevel
+    // Валидация visibilityLevel и commentLevel
     const roleMaxVisibility = {
       'KOMMENTATOR': 10,
       'AVTOR': 20,
@@ -52,6 +52,7 @@ export const handler = async (event) => {
 
     const maxAllowed = roleMaxVisibility[userRole] || 0;
     const requestedVisibility = visibilityLevel !== undefined ? Number(visibilityLevel) : undefined;
+    const requestedCommentLevel = commentLevel !== undefined ? Number(commentLevel) : undefined;
 
     if (requestedVisibility !== undefined) {
       if (requestedVisibility > maxAllowed) {
@@ -67,6 +68,24 @@ export const handler = async (event) => {
           statusCode: 400,
           headers,
           body: JSON.stringify({ error: 'Invalid visibility level. Must be 0, 10, 20, 30, or 40' }),
+        };
+      }
+    }
+
+    if (requestedCommentLevel !== undefined) {
+      if (requestedCommentLevel > maxAllowed) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: `Forbidden: Your role allows max comment level ${maxAllowed}` }),
+        };
+      }
+
+      if (![0, 10, 20, 30, 40].includes(requestedCommentLevel)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Invalid comment level. Must be 0, 10, 20, 30, or 40' }),
         };
       }
     }
@@ -119,6 +138,11 @@ export const handler = async (event) => {
     if (requestedVisibility !== undefined) {
       updateExpressions.push('visibilityLevel = :visibilityLevel');
       expressionAttributeValues[':visibilityLevel'] = requestedVisibility;
+    }
+
+    if (requestedCommentLevel !== undefined) {
+      updateExpressions.push('commentLevel = :commentLevel');
+      expressionAttributeValues[':commentLevel'] = requestedCommentLevel;
     }
 
     if (postAvatarId !== undefined) {
