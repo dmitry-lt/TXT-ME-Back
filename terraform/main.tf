@@ -79,14 +79,16 @@ resource "aws_dynamodb_table" "posts" {
     name            = "feedKey-createdAt-index"
     hash_key        = "feedKey"
     range_key       = "createdAt"
-    projection_type = "KEYS_ONLY"
+    projection_type = "INCLUDE"
+    non_key_attributes = ["visibilityLevel"]
   }
 
   global_secondary_index {
     name            = "userId-createdAt-index"
     hash_key        = "userId"
     range_key       = "createdAt"
-    projection_type = "KEYS_ONLY"
+    projection_type = "INCLUDE"
+    non_key_attributes = ["visibilityLevel"]
   }
 }
 

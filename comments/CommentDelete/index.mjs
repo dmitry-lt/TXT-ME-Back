@@ -16,7 +16,7 @@ const verifyToken = (token) => {
 };
 
 export const handler = async (event) => {
-  console.log("Event:", JSON.stringify(event));
+  console.log("CommentDelete Event:", JSON.stringify(event));
   
   const corsHeaders = {
     "Content-Type": "application/json",

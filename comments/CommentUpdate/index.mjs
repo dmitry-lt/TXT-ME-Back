@@ -9,17 +9,19 @@ const JWT_SECRET = process.env.JWT_SECRET || 'cms-jwt-secret-prod-2025';
 const COMMENTS_TABLE = 'CMS-Comments';
 
 export const handler = async (event) => {
+  console.log("CommentUpdate Event:", JSON.stringify(event));
+
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'PUT,OPTIONS',
+    'Access-Control-Allow-Methods': 'PUT,OPTIONS,DELETE',
   };
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
 
   try {
-    const token = event.headers.Authorization?.replace('Bearer ', '') ||
-                  event.headers.authorization?.replace('Bearer ', '');
+    const token = event.headers?.Authorization?.replace('Bearer ', '') ||
+                  event.headers?.authorization?.replace('Bearer ', '');
 
     if (!token) return { statusCode: 401, headers, body: JSON.stringify({ error: 'No token' }) };
 
@@ -44,7 +46,8 @@ export const handler = async (event) => {
     // 2. Создаем обновленный объект, меняя только контент
     const updatedComment = {
       ...getResult.Item,
-      content: content
+      content: content,
+      updatedAt: Date.now()
     };
 
     // 3. Перезаписываем объект целиком через PutCommand

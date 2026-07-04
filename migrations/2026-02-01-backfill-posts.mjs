@@ -10,6 +10,7 @@
  * 3. Это позволяет Global Secondary Index (feedKey-createdAt-index) собрать все посты
  * в одну виртуальную партицию, где они будут отсортированы по 'createdAt'.
  * 4. Также переносит теги постов в таблицу CMS-TagPosts для эффективной фильтрации.
+ * 5. Проставляет уровень видимости (visibilityLevel=0) для всех старых записей.
  * * ПОСЛЕДСТВИЯ:
  * После завершения миграции индекс 'feedKey-createdAt-index' наполнится автоматически.
  * Это позволит делать пагинацию (Query) по всей ленте без использования дорогого Scan.
@@ -88,21 +89,33 @@ async function backfill() {
           }
         }
 
-        // 1. Update CMS-Posts with feedKey="GLOBAL"
-        if (!post.feedKey) {
+        // 1. Update CMS-Posts with feedKey="GLOBAL" and visibilityLevel=0
+        if (!post.feedKey || post.visibilityLevel === undefined) {
+          const updateExpr = [];
+          const attrValues = {};
+          
+          if (!post.feedKey) {
+            updateExpr.push('feedKey = :fk');
+            attrValues[':fk'] = 'GLOBAL';
+          }
+          
+          if (post.visibilityLevel === undefined) {
+            updateExpr.push('visibilityLevel = :vl');
+            attrValues[':vl'] = 0;
+          }
+
           await docClient.send(new UpdateCommand({
             TableName: POSTS_TABLE,
             Key: { postId: post.postId },
-            UpdateExpression: 'SET feedKey = :fk',
-            ExpressionAttributeValues: {
-              ':fk': 'GLOBAL',
-            },
+            UpdateExpression: 'SET ' + updateExpr.join(', '),
+            ExpressionAttributeValues: attrValues,
           }));
           totalUpdated++;
         }
 
         // 2. Create entries in CMS-TagPosts for each tag
         if (post.tags && Array.isArray(post.tags)) {
+          const vLevel = post.visibilityLevel !== undefined ? post.visibilityLevel : 0;
           for (const tag of post.tags) {
             await docClient.send(new PutCommand({
               TableName: TAG_POSTS_TABLE,
@@ -110,6 +123,7 @@ async function backfill() {
                 tag: tag,
                 createdAt: post.createdAt,
                 postId: post.postId,
+                visibilityLevel: vLevel
               },
             }));
             totalTagsCreated++;

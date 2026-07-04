@@ -37,6 +37,7 @@ export const handler = async (event) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.sub || decoded.userId;
     const username = decoded.username;
+    const userRole = decoded.role || 'KOMMENTATOR';
 
     const postId = event.pathParameters.id;
     const body = JSON.parse(event.body);
@@ -47,6 +48,42 @@ export const handler = async (event) => {
         statusCode: 400,
         headers,
         body: JSON.stringify({ error: 'Content is required' }),
+      };
+    }
+
+    // Проверяем пост на существование и commentLevel
+    const postResult = await dynamodb.send(new GetCommand({
+      TableName: POSTS_TABLE,
+      Key: { postId },
+    }));
+
+    if (!postResult.Item) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Post not found' }),
+      };
+    }
+
+    const post = postResult.Item;
+    const commentLevel = post.commentLevel || 0;
+
+    // Роли и уровни
+    const roleLevels = {
+      'KOMMENTATOR': 10,
+      'AVTOR': 20,
+      'SMOTRITEL': 30,
+      'NASTOIATEL': 40
+    };
+
+    const userLevel = roleLevels[userRole] || 0;
+
+    // Только автор поста может комментировать, если его уровень ниже commentLevel
+    if (userLevel < commentLevel && post.userId !== userId) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ error: `Forbidden: This post only allows comments from level ${commentLevel} or higher` }),
       };
     }
 
